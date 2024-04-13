@@ -1,72 +1,122 @@
-	an overview of the functions (including documentation)
-void printDivider() 
-// prints out a line of hyphens, used to seperate the different blocks of data
-// put in one function as it makes the code more readable (and saves the programmer hassle of counting hyphens every time)
+		-- HOW DID I SOLVE THE PROBLEM --
+Set up three different pipes and child processes for each required process:
+	1. Memory usage
+	2. CPU usage
+	3. Connected users
+Each child process writes to their pipe samples times on length tdelay intervals, the parent process loops reading each one (also samples times) in sequence and printing it to the correct given location.
 
-void printHeader(int samples, float frequency) 
-// takes samples representing how many data points we will print and frequency representing how long between each data point
-// prints those variables as well as uses <sys/resource.h> for struct rusage to print self diagnostic data
+Another issue was to handle the child processes when CTRL+C was called. To resolve this, when each child process is created their pid is stored statically using pid_obj. When interrupt is called, those pids are killed before exiting the program.
 
-void printSysInfo()
-// prints system data using <sys/utsname.h> for struct utsname
-// parses and reformats /proc/uptime to print machine uptime
 
-void wait(float tdelay) 
-// uses <unistd.h> to combine sleep and usleep to create one function that can wait for floats >1 amount of time
+		-- OVERVIEW OF FUNCTIONS --
+	--- in display
+/*
+ * @brief prints row of -'s as a divider
+ */
+void printDivider();
 
-int printUsersInfo() 
-// prints user data on the users currently connected
-// returns the number of users/sessions currently connected
+/*
+ * @brief prints the header portion of the output
+ * @param samples amount of samples to be taken
+ * @param frequency amount of time between each sample
+ */
+void printHeader(int samples, float frequency);
 
-float printMemDiff(int graphics, float prev_memory, float total_phymem, float total_virtmem)
-// takes total_phymem and total_virtmem as arguments only so it doesnt repeatedly strtof the values from the file (avoids complexity)
-// the above arguments represent the total physical memory and total virtual memory of the machine
-// parses file /proc/meminfo to calculate how much memory is being used total (both phys and virt)
-// uses prev_memory to display the difference in memory usage between samples (if graphics then it is displayed graphically aswell)
+/*
+ * @brief prints the system info at the footer of the visualization
+ */
+void printSysInfo();
 
-void printCanvas(int samples, int graphics, int num_cores) 
-// effectively prints the workstation for printUsage, gives samples amount of space for data and if graphics gives space for graphics
-// prints out the number of course (num_cores) in the correct location
+/*
+ * @brief prints the static outline leaving space for the dynamic data to be filled in
+ * @param samples amount of samples to be taken
+ * @param graphics denotes whether or not graphics should be printed
+ * @param num_cores number of cores the CPU has 
+ * @param users denotes whether or not users should be printed
+ */
+void printCanvas(int samples, int graphics, int num_cores, int users);
 
-float getUsage(char *extra)
-// Uses /proc/stat to get cpu_usage data, needs extra to be passed as extra space for the data inside of the proc file
-// calculates CPU usage by dividing the amount of idle by total (giving the decimal of time idle)
-// then  1 - decimal of time idle = decimal of time not idle
-// multiply that number by 100 to get the percentage of cpu not idle or the percentage being used
+/*
+ * @brief visualizes the amount of cpu usage with |'s
+ * @param delta current usage
+ */
+void cpuGraphic(float delta);
 
-int getCores() 
-// reads /proc/cpuinfo to get and return the number of cores your cpu has
+	--- in usage_functions
+/*
+ * @brief sleeps the system for a float amount of time
+ * @param tdelay amount of time to sleep for
+ */
+void wait(float tdelay);
 
-void cpuGraphic(float delta) 
-// prints a '|' character to visualize every 0.01 of CPU usage (delta) and prints delta at the end
+/*
+ * @brief counts how many users are connected at time of calling
+ * @return the number of connected users
+ */
+int countConnectedUsers();
 
-void printUsage(int graphics, int sequential, int samples, float tdelay, int users)
-// this function does a bulk of the processing and output of CPU and memory usage
-// reads from /proc/meminfo to get total physical and virtual memory, uses that to output desired data
-// uses graphics, sequential, and users as criteria for display if any of them are true it alters the display process
-// gets sample data based on samples samples waiting between tdelay seconds between each
-// heavy documentation on the code of this function, lots to track
+/*
+ * @brief gets connected user information
+ * @return string of connected user information
+ */
+char* getUsersInfo();
 
-void printUsers(int samples, float tdelay, int sequential) 
-// for when '--user' flag is passed to the terminal, this function outputs the proper data required for that flag
-// gets sample data based on samples samples waiting between tdelay seconds between each
-// if sequential then the function alters its display
+/*
+ * @brief computes memory usage at time of calling
+ * @param graphics denotes whether graphical visualization of change should be appended
+ * @param prev_memory pointer to float containing previous memory usage
+ * @return string with memory information + optional graphical visualization (if graphics)
+ */
+char *getMemDiff(int graphics, float *prev_memory);
 
-int main(int argc, char **argv) 
-// parses all the arguments passed through the terminal, directs each to the location that provides the correct output (i.e. acts as 
-// a menu)
+/*
+ * @brief counts the number of cpu cores
+ * @return the number of cores
+ */
+int getCores();
 
-	how to run (use) your program
-Accepts the following arguments:
---system 	: solely displays system data (no user data)
---user		: solely displays user data (no system data)
---graphics 	: provides visualization for CPU and memory data
--g		: equivalent to --graphics
---sequential	: changes the output to be sequential (i.e. instead of live updates, prints one after another)
---samples=#	: replace # with an integer to change the number of data points taken
---tdelay=#	: replace # with a float to change the amount of time (in seconds) between each sampling
+/* 
+ * @brief calculates cpu usage over time interval
+ * @param tdelay length of that interval
+ * @return the cpu usage
+ */
+float getUsage(float tdelay);
+
+	--- in pid_obj
+/*
+ * @brief sets process id into array
+ * @param index is the index of insertion
+ * @param pid is the childs process id
+ */
+void set_pid(int index, int pid);
+
+/*
+ * @brief gets process id at given spot
+ * @param index is the desired pid  in array
+ * @return the process id  
+ */
+int get_pid(int index);
+
+
+		-- HOW TO USE THE PROGRAM --
+make [command]
+	all	: creates SystemUsage  
+	clean	: removes SystemUsage and .o files
+	help	: prints this menu to console
+		
+SystemUsage accepts the following arguments:
+--system     	: solely displays system data (no user data)
+--user        	: solely displays user data (no system data)
+--graphics     	: provides visualization for CPU and memory data
+-g        	: equivalent to --graphics
+--sequential    : changes the output to be sequential (i.e. instead of live updates, prints one after another)
+--samples=#    	: replace # with an integer to change the number of data points taken
+--tdelay=#    	: replace # with a float to change the amount of time (in seconds) between each sampling
+
+!!! IMPORTANT POINTS OF USE !!!
 The final 2 arguments may also be passed as positional arguments in the order 'int float', 
-this will be read as '--samples=int --tdelay=float' 
+this will be read as '--samples=int --tdelay=float'.
+Both must be present and in this order for the positional arguments to be accepted.
 
 If duplicate arguments are passed, the last instance of the argument will be considered (i.e. two calls to --samples=# will override
 eachother), if neither or both --system and --user are passed then both sets of information will be output. It is never needed to
@@ -76,3 +126,8 @@ If unreasonable (considering typical) amounts of users are connected, CPU is bei
 the terminal will not provide enough space for output and graphics may overlap/spill into other lines.
 In this case, pass the 'clear' argument to your terminal after the program terminates and attempt to run the program again.
 (This might also occur if the terminal is atypically small, or a number of other abnormal conditions)
+
+Visualization of users handles any number of users but expects the user count to not change after printing begins or formatting will be affected.
+
+calling 'make' with no additional command is equivalent to calling 'make all'
+
